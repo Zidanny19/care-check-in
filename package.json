@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "func start",
-    "test": "echo \"No tests needed for now\""
+    "test": "echo \"No tests needed\"
   },
   "dependencies": {
     "geolib": "^3.3.4",
     "mssql": "^10.0.1"
   }
 }
+
