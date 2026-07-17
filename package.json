@@ -2,7 +2,7 @@
   "name": "care-check-in-api",
   "version": "1.0.0",
   "description": "Backend API for C&D Family Care Visit Logging",
-  "main": "index.js",
+  "main": "LogVisits/index.js",
   "scripts": {
     "start": "func start",
     "test": "echo No-tests-needed"
