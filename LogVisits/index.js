@@ -18,7 +18,7 @@ module.exports = async function (context, req) {
     context.log('Processing a care visit log request...');
 
     // 1. Validate the incoming request body
-    const { carerName, clientName, actionType, latitude, longitude } = req.body || {};
+    const { carerName, clientName, actionType, latitude, longitude } = (req && req.body) || {};
 
     if (!carerName || !clientName || !actionType || !latitude || !longitude) {
         context.res = {
