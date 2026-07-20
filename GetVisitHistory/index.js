@@ -17,11 +17,14 @@ module.exports = async function (context, req) {
     const carerName = req.query.carerName;
 
     try {
-        let query = "SELECT TOP 50 LogID, CarerName, ClientName, ActionType, LogTime, IsVerified, DistanceFromClientMeters FROM dbo.VisitLogs WHERE 1=1";
+        // 1. Store the connection pool
+        const pool = await sql.connect(sqlConfig);
 
-       
+        let query = `SELECT TOP 50 LogID, CarerName, ClientName, ActionType, LogTime, IsVerified, DistanceFromClientMeters 
+                     FROM dbo.VisitLogs WHERE 1=1`;
 
-        const request = new sql.Request();
+        // 2. Pass the pool into sql.Request
+        const request = new sql.Request(pool);
 
         if (clientName) {
             query += ` AND ClientName = @clientName`;
