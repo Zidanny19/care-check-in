@@ -95,7 +95,7 @@
       try {
         const response = await fetch(LOG_API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' }, // Bypass CORS preflight restriction
           body: JSON.stringify({
             carerName: carerName,
             clientName: clientName,
@@ -105,8 +105,9 @@
 
         const data = await response.json();
 
-        if (response.ok) {
+        if (response.ok || data.success) {
           showStatus(`✓ Visit logged successfully for ${clientName}!`);
+          document.getElementById('clientName').value = '';
         } else {
           showStatus(`Error: ${data.message || 'Failed to record visit.'}`, true);
         }
@@ -116,6 +117,31 @@
     }
 
     async function startNFCScan() {
+      if ('NDEFReader' in window) {
+        try {
+          const ndef = new NDEFReader();
+          await ndef.scan();
+          showStatus('NFC Ready! Hold your phone near the tag...');
+
+          ndef.addEventListener("reading", ({ serialNumber }) => {
+            showStatus(`NFC Tag Detected (${serialNumber})! Processing...`);
+            submitCheckIn(`NFC Tag: ${serialNumber}`);
+          });
+
+          ndef.addEventListener("readingerror", () => {
+            showStatus("Failed to read NFC tag. Try again.", true);
+          });
+        } catch (error) {
+          showStatus(`NFC Error: ${error.message || 'Permission denied'}`, true);
+        }
+      } else {
+        showStatus('Web NFC is not supported on this device/browser. Using manual log instead.');
+        submitCheckIn('Manual (NFC Unsupported)');
+      }
+    }
+  </script>
+</body>
+</html>    async function startNFCScan() {
       if ('NDEFReader' in window) {
         try {
           const ndef = new NDEFReader();
