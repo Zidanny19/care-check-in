@@ -12,9 +12,10 @@ const sqlConfig = {
 };
 
 module.exports = async function (context, req) {
-    // Enable CORS headers for all responses
+    // Set explicit JSON and CORS headers
     context.res = {
         headers: {
+            'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type'
@@ -35,7 +36,7 @@ module.exports = async function (context, req) {
 
         if (!carerName || !clientName) {
             context.res.status = 400;
-            context.res.body = { success: false, message: 'Missing carer or client name.' };
+            context.res.body = JSON.stringify({ success: false, message: 'Missing carer or client name.' });
             return;
         }
 
@@ -53,12 +54,11 @@ module.exports = async function (context, req) {
             `);
 
         context.res.status = 200;
-        context.res.body = { success: true, message: 'Visit logged successfully!' };
+        context.res.body = JSON.stringify({ success: true, message: 'Visit logged successfully!' });
 
     } catch (err) {
         context.log('Error logging visit:', err);
         context.res.status = 500;
-        context.res.body = { success: false, message: 'Database/Server error: ' + err.message };
+        context.res.body = JSON.stringify({ success: false, message: 'Database/Server error: ' + err.message });
     }
-};
 };
