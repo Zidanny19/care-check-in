@@ -8,11 +8,12 @@ const sqlConfig = {
     options: {
         encrypt: true,
         trustServerCertificate: false
-    }
+    },
+    connectionTimeout: 30000,
+    requestTimeout: 30000
 };
 
 module.exports = async function (context, req) {
-    // Set explicit JSON and CORS headers
     context.res = {
         headers: {
             'Content-Type': 'application/json',
@@ -22,14 +23,12 @@ module.exports = async function (context, req) {
         }
     };
 
-    // Handle OPTIONS Preflight
     if (req.method === 'OPTIONS') {
         context.res.status = 204;
         return;
     }
 
     try {
-        // Extract parameters from either GET query or POST body
         const carerName = (req.query && req.query.carerName) || (req.body && req.body.carerName);
         const clientName = (req.query && req.query.clientName) || (req.body && req.body.clientName);
         const location = (req.query && req.query.location) || (req.body && req.body.location) || 'Check-In';
@@ -40,7 +39,6 @@ module.exports = async function (context, req) {
             return;
         }
 
-        // Connect and save to SQL Database
         const pool = await sql.connect(sqlConfig);
         await pool.request()
             .input('CarerName', sql.NVarChar, carerName)
