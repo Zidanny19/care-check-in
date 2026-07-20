@@ -1,100 +1,64 @@
 const sql = require('mssql');
-const geolib = require('geolib');
 
-// Your Azure SQL connection configuration
-// We will load these securely from Azure Environment Variables next!
 const sqlConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER, 
+    server: process.env.DB_SERVER,
     database: process.env.DB_NAME,
     options: {
-        encrypt: true, // Use encryption for Azure SQL
+        encrypt: true,
         trustServerCertificate: false
     }
 };
 
 module.exports = async function (context, req) {
-    context.log('Processing a care visit log request...');
+    // Enable CORS headers for all responses
+    context.res = {
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        }
+    };
 
-    // 1. Validate the incoming request body
-    const { carerName, clientName, actionType, latitude, longitude } = (req && req.body) || {};
-
-    if (!carerName || !clientName || !actionType || !latitude || !longitude) {
-        context.res = {
-            status: 400,
-            body: "Missing required fields: carerName, clientName, actionType, latitude, longitude."
-        };
+    // Handle OPTIONS Preflight
+    if (req.method === 'OPTIONS') {
+        context.res.status = 204;
         return;
     }
 
-    let pool;
     try {
-        // 2. Connect to the Azure SQL Database
-        pool = await sql.connect(sqlConfig);
+        // Extract parameters from either GET query or POST body
+        const carerName = (req.query && req.query.carerName) || (req.body && req.body.carerName);
+        const clientName = (req.query && req.query.clientName) || (req.body && req.body.clientName);
+        const location = (req.query && req.query.location) || (req.body && req.body.location) || 'Check-In';
 
-        // 3. Look up the client's registered coordinates from the database
-        const clientResult = await pool.request()
-            .input('clientName', sql.NVarChar, clientName)
-            .query('SELECT Latitude, Longitude FROM Clients WHERE Name = @clientName');
-
-        if (clientResult.recordset.length === 0) {
-            context.res = {
-                status: 404,
-                body: `Client '${clientName}' not found in the database.`
-            };
+        if (!carerName || !clientName) {
+            context.res.status = 400;
+            context.res.body = { success: false, message: 'Missing carer or client name.' };
             return;
         }
 
-        const clientLat = clientResult.recordset[0].Latitude;
-        const clientLon = clientResult.recordset[0].Longitude;
-
-        // 4. Calculate the distance between the carer and the client's home (in meters)
-        const distanceInMeters = geolib.getDistance(
-            { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-            { latitude: parseFloat(clientLat), longitude: parseFloat(clientLon) }
-        );
-
-        // Define a reasonable radius (e.g., 150 meters) to confirm if they are on-site
-        const maxRadiusMeters = 150; 
-        const isVerified = distanceInMeters <= maxRadiusMeters;
-
-        // 5. Insert the log entry into the VisitLogs table
+        // Connect and save to SQL Database
+        const pool = await sql.connect(sqlConfig);
         await pool.request()
-            .input('carerName', sql.NVarChar, carerName)
-            .input('clientName', sql.NVarChar, clientName)
-            .input('actionType', sql.VarChar, actionType)
-            .input('latitude', sql.Decimal(9, 6), parseFloat(latitude))
-            .input('longitude', sql.Decimal(9, 6), parseFloat(longitude))
-            .input('distance', sql.Int, distanceInMeters)
-            .input('isVerified', sql.Bit, isVerified ? 1 : 0)
+            .input('CarerName', sql.NVarChar, carerName)
+            .input('ClientName', sql.NVarChar, clientName)
+            .input('ActionType', sql.NVarChar, location)
+            .input('IsVerified', sql.Bit, 1)
+            .input('Distance', sql.Float, 0)
             .query(`
-                INSERT INTO VisitLogs (CarerName, ClientName, ActionType, Latitude, Longitude, DistanceFromClientMeters, IsVerified, LogTime)
-                VALUES (@carerName, @clientName, @actionType, @latitude, @longitude, @distance, @isVerified, GETDATE())
+                INSERT INTO dbo.VisitLogs (CarerName, ClientName, ActionType, LogTime, IsVerified, DistanceFromClientMeters)
+                VALUES (@CarerName, @ClientName, @ActionType, GETUTCDATE(), @IsVerified, @Distance)
             `);
 
-        // 6. Return success response to the carer's mobile screen
-        context.res = {
-            status: 200,
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: {
-                message: `Successfully logged ${actionType}!`,
-                distanceMeters: distanceInMeters,
-                verified: isVerified
-            }
-        };
+        context.res.status = 200;
+        context.res.body = { success: true, message: 'Visit logged successfully!' };
 
     } catch (err) {
-        context.log.error('Database or system error:', err.message);
-        context.res = {
-            status: 500,
-            body: `Internal Server Error: ${err.message}`
-        };
-    } finally {
-        if (pool) {
-            await pool.close();
-        }
+        context.log('Error logging visit:', err);
+        context.res.status = 500;
+        context.res.body = { success: false, message: 'Database/Server error: ' + err.message };
     }
+};
 };
