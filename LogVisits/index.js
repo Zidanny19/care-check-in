@@ -14,7 +14,7 @@ const sqlConfig = {
 };
 
 module.exports = async function (context, req) {
-    // Set headers
+    // Set headers for CORS and explicit JSON response
     const headers = {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
@@ -48,6 +48,7 @@ module.exports = async function (context, req) {
             return;
         }
 
+        // Connect and save to SQL Database
         const pool = await sql.connect(sqlConfig);
         await pool.request()
             .input('CarerName', sql.NVarChar, carerName)
